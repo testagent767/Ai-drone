@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Cesium Base</title>
+  <title>Cesium Full Scene</title>
 
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -30,17 +30,50 @@ async function init() {
     terrain: Cesium.Terrain.fromWorldTerrain()
   });
 
-  // 🔥 STEP 1: ONLY GOOGLE TILES (test first)
+  // 🔥 1. Google Photorealistic Base (MANDATORY)
   const googleTiles = await Cesium.createGooglePhotorealistic3DTileset();
   viewer.scene.primitives.add(googleTiles);
 
-  // Focus somewhere known
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(-75.5957, 40.2994, 500),
+  // 🔥 2. First asset
+  const tileset1 = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
+  viewer.scene.primitives.add(tileset1);
+
+  // 🔥 3. Second asset
+  const tileset2 = await Cesium.Cesium3DTileset.fromIonAssetId(2275207);
+  viewer.scene.primitives.add(tileset2);
+
+  // Wait for both
+  await tileset1.readyPromise;
+  await tileset2.readyPromise;
+
+  // 🔥 4. Focus on main one (choose better one)
+  await viewer.zoomTo(tileset2);
+
+  // Save globally
+  window.viewer = viewer;
+  window.tileset = tileset2;
+
+  console.log("✅ All assets loaded");
+
+  startOrbit();
+}
+
+function startOrbit() {
+  let angle = 0;
+
+  window.viewer.clock.onTick.addEventListener(() => {
+    angle += 0.0015;
+
+    const center = window.tileset.boundingSphere.center;
+
+    const offset = new Cesium.HeadingPitchRange(
+      angle,
+      Cesium.Math.toRadians(-25),
+      250
+    );
+
+    window.viewer.camera.lookAt(center, offset);
   });
-
-  console.log("✅ Google 3D working");
-
 }
 
 init();
