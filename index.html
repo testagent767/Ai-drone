@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Cesium Property Viewer</title>
+  <title>Cesium Full Scene</title>
 
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -19,74 +19,64 @@
 </head>
 
 <body>
-  <div id="cesiumContainer"></div>
+<div id="cesiumContainer"></div>
 
-  <script>
-    // 🔴 PUT YOUR TOKEN HERE
-    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
+<script>
+Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMzM3MDQzZC01MWZiLTRhMzgtODA5Yy04ZjY4ZDk1Y2ZjYzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTA4NDB9.uilBWuqBeZheLIr30n9Qi97is0aF5TrolpIurNf_fSQ";
 
-    async function init() {
+async function init() {
 
-      // 1️⃣ Create viewer
-      const viewer = new Cesium.Viewer('cesiumContainer', {
-        terrain: Cesium.Terrain.fromWorldTerrain()
-      });
+  const viewer = new Cesium.Viewer('cesiumContainer', {
+    terrain: Cesium.Terrain.fromWorldTerrain()
+  });
 
-      // 2️⃣ Load your 3D property (VERY IMPORTANT)
-      const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
-      viewer.scene.primitives.add(tileset);
+  // 🔥 1. Google Photorealistic Base (MANDATORY)
+  const googleTiles = await Cesium.createGooglePhotorealistic3DTileset();
+  viewer.scene.primitives.add(googleTiles);
 
-      // 3️⃣ Wait until fully loaded
-      await tileset.readyPromise;
+  // 🔥 2. First asset
+  const tileset1 = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
+  viewer.scene.primitives.add(tileset1);
 
-      // 4️⃣ Zoom directly to your property
-      await viewer.zoomTo(tileset);
+  // 🔥 3. Second asset
+  const tileset2 = await Cesium.Cesium3DTileset.fromIonAssetId(2275207);
+  viewer.scene.primitives.add(tileset2);
 
-      // 5️⃣ Save globally (needed for Puppeteer later)
-      window.viewer = viewer;
-      window.tileset = tileset;
+  // Wait for both
+  await tileset1.readyPromise;
+  await tileset2.readyPromise;
 
-      console.log("✅ Property loaded");
+  // 🔥 4. Focus on main one (choose better one)
+  await viewer.zoomTo(tileset2);
 
-      // OPTIONAL: start auto rotation (for testing)
-      startOrbit();
-    }
+  // Save globally
+  window.viewer = viewer;
+  window.tileset = tileset2;
 
-    // 🎥 Simple orbit animation (drone feel)
-    function startOrbit() {
-      let angle = 0;
+  console.log("✅ All assets loaded");
 
-      window.viewer.clock.onTick.addEventListener(() => {
-        angle += 0.002;
+  startOrbit();
+}
 
-        const center = window.tileset.boundingSphere.center;
+function startOrbit() {
+  let angle = 0;
 
-        const offset = new Cesium.HeadingPitchRange(
-          angle,
-          Cesium.Math.toRadians(-30),
-          200
-        );
+  window.viewer.clock.onTick.addEventListener(() => {
+    angle += 0.0015;
 
-        window.viewer.camera.lookAt(center, offset);
-      });
-    }
+    const center = window.tileset.boundingSphere.center;
 
-    // 🎯 Manual camera angle (for Puppeteer later)
-    window.setCameraAngle = function(angle) {
-      const center = window.tileset.boundingSphere.center;
+    const offset = new Cesium.HeadingPitchRange(
+      angle,
+      Cesium.Math.toRadians(-25),
+      250
+    );
 
-      const offset = new Cesium.HeadingPitchRange(
-        Cesium.Math.toRadians(angle),
-        Cesium.Math.toRadians(-30),
-        200
-      );
+    window.viewer.camera.lookAt(center, offset);
+  });
+}
 
-      window.viewer.camera.lookAt(center, offset);
-    };
-
-    // 🚀 Start everything
-    init();
-
-  </script>
+init();
+</script>
 </body>
 </html>
