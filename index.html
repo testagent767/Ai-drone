@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Cesium Full Scene</title>
+  <title>3D Tiles Viewer</title>
 
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -13,70 +13,47 @@
       height: 100%;
       margin: 0;
       padding: 0;
-      overflow: hidden;
     }
   </style>
 </head>
 
 <body>
-<div id="cesiumContainer"></div>
+  <div id="cesiumContainer"></div>
 
-<script>
-Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
+  <script>
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
 
-async function init() {
+    async function init() {
 
-  const viewer = new Cesium.Viewer('cesiumContainer', {
-    terrain: Cesium.Terrain.fromWorldTerrain()
-  });
+      const viewer = new Cesium.Viewer("cesiumContainer", {
+        terrain: Cesium.Terrain.fromWorldTerrain(),
+        shadows: true
+      });
 
-  // 🔥 1. Google Photorealistic Base (MANDATORY)
-  const googleTiles = await Cesium.createGooglePhotorealistic3DTileset();
-  viewer.scene.primitives.add(googleTiles);
+      viewer.scene.globe.enableLighting = true;
 
-  // 🔥 2. First asset
-  const tileset1 = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
-  viewer.scene.primitives.add(tileset1);
+      // 🔥 LOAD YOUR 3D TILESET
+      const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
+      viewer.scene.primitives.add(tileset);
 
-  // 🔥 3. Second asset
-  const tileset2 = await Cesium.Cesium3DTileset.fromIonAssetId(2275207);
-  viewer.scene.primitives.add(tileset2);
+      await tileset.readyPromise;
 
-  // Wait for both
-  await tileset1.readyPromise;
-  await tileset2.readyPromise;
+      // 🎯 FORCE GOOD CAMERA VIEW (NOT TOP-DOWN)
+      viewer.camera.flyToBoundingSphere(tileset.boundingSphere, {
+        offset: new Cesium.HeadingPitchRange(
+          Cesium.Math.toRadians(45),   // rotate view
+          Cesium.Math.toRadians(-30),  // tilt camera
+          tileset.boundingSphere.radius * 2
+        )
+      });
 
-  // 🔥 4. Focus on main one (choose better one)
-  await viewer.zoomTo(tileset2);
+      window.viewer = viewer;
+      window.tileset = tileset;
 
-  // Save globally
-  window.viewer = viewer;
-  window.tileset = tileset2;
+      console.log("✅ 3D tiles loaded");
+    }
 
-  console.log("✅ All assets loaded");
-
-  startOrbit();
-}
-
-function startOrbit() {
-  let angle = 0;
-
-  window.viewer.clock.onTick.addEventListener(() => {
-    angle += 0.0015;
-
-    const center = window.tileset.boundingSphere.center;
-
-    const offset = new Cesium.HeadingPitchRange(
-      angle,
-      Cesium.Math.toRadians(-25),
-      250
-    );
-
-    window.viewer.camera.lookAt(center, offset);
-  });
-}
-
-init();
-</script>
+    init();
+  </script>
 </body>
 </html>
