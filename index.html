@@ -1,17 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cesium Full Scene</title>
+
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+  <style>
+    html, body, #cesiumContainer {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+<div id="cesiumContainer"></div>
+
 <script>
 Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
 
 async function init() {
 
-  const viewer = new Cesium.Viewer('cesiumContainer');
+  const viewer = new Cesium.Viewer('cesiumContainer', {
+    terrain: Cesium.Terrain.fromWorldTerrain()
+  });
 
-  const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
-  viewer.scene.primitives.add(tileset);
+  // 🔥 1. Google Photorealistic Base (MANDATORY)
+  const googleTiles = await Cesium.createGooglePhotorealistic3DTileset();
+  viewer.scene.primitives.add(googleTiles);
 
-  await viewer.zoomTo(tileset);
+  // 🔥 2. First asset
+  const tileset1 = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
+  viewer.scene.primitives.add(tileset1);
 
-  console.log("✅ Basic tileset loaded");
+  // 🔥 3. Second asset
+  const tileset2 = await Cesium.Cesium3DTileset.fromIonAssetId(2275207);
+  viewer.scene.primitives.add(tileset2);
+
+  // Wait for both
+  await tileset1.readyPromise;
+  await tileset2.readyPromise;
+
+  // 🔥 4. Focus on main one (choose better one)
+  await viewer.zoomTo(tileset2);
+
+  // Save globally
+  window.viewer = viewer;
+  window.tileset = tileset2;
+
+  console.log("✅ All assets loaded");
+
+  startOrbit();
+}
+
+function startOrbit() {
+  let angle = 0;
+
+  window.viewer.clock.onTick.addEventListener(() => {
+    angle += 0.0015;
+
+    const center = window.tileset.boundingSphere.center;
+
+    const offset = new Cesium.HeadingPitchRange(
+      angle,
+      Cesium.Math.toRadians(-25),
+      250
+    );
+
+    window.viewer.camera.lookAt(center, offset);
+  });
 }
 
 init();
 </script>
+</body>
+</html>
