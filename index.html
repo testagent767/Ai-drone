@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Cinematic Property Viewer</title>
+  <title>Cinematic Viewer</title>
 
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -19,113 +19,89 @@
 </head>
 
 <body>
-  <div id="cesiumContainer"></div>
+<div id="cesiumContainer"></div>
 
-  <script>
-    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
+<script>
+Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
 
-    let cinematicActive = true;
+let cinematicActive = true;
 
-    async function init() {
+async function init() {
 
-      const viewer = new Cesium.Viewer("cesiumContainer", {
-        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-        shadows: true
-      });
+  const viewer = new Cesium.Viewer("cesiumContainer", {
+    terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+    shouldAnimate: true,
+    shadows: true
+  });
 
-      viewer.scene.globe.enableLighting = true;
+  viewer.scene.globe.enableLighting = true;
 
-      const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
-      viewer.scene.primitives.add(tileset);
+  const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
+  viewer.scene.primitives.add(tileset);
 
-      await tileset.readyPromise;
+  await tileset.readyPromise;
 
-      // 🎯 Initial cinematic position
-      viewer.camera.flyToBoundingSphere(tileset.boundingSphere, {
-        duration: 2,
-        offset: new Cesium.HeadingPitchRange(
-          Cesium.Math.toRadians(45),
-          Cesium.Math.toRadians(-30),
-          tileset.boundingSphere.radius * 2
-        )
-      });
+  window.viewer = viewer;
+  window.tileset = tileset;
 
-      window.viewer = viewer;
-      window.tileset = tileset;
+  // 🎯 STOP cinematic on ANY user interaction
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
 
-      // 👇 Detect user interaction → STOP cinematic
-      viewer.camera.moveStart.addEventListener(() => {
-        cinematicActive = false;
-        console.log("⛔ Cinematic stopped by user");
-      });
+  handler.setInputAction(() => cinematicActive = false, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+  handler.setInputAction(() => cinematicActive = false, Cesium.ScreenSpaceEventType.WHEEL);
+  handler.setInputAction(() => cinematicActive = false, Cesium.ScreenSpaceEventType.PINCH_START);
 
-      startCinematic();
-    }
+  startCinematic();
+}
 
-    function startCinematic() {
-      let angle = 0;
-      let phase = 0;
+function startCinematic() {
 
-      window.viewer.clock.onTick.addEventListener(() => {
+  const viewer = window.viewer;
+  const tileset = window.tileset;
+  const center = tileset.boundingSphere.center;
 
-        if (!cinematicActive) return;
+  // 🎬 Define cinematic shots
+  const shots = [
+    { heading: 30, pitch: -25, range: 3.0 },
+    { heading: 120, pitch: -35, range: 2.0 },
+    { heading: 210, pitch: -45, range: 1.6 },
+    { heading: 300, pitch: -30, range: 2.5 }
+  ];
 
-        const center = window.tileset.boundingSphere.center;
+  let index = 0;
 
-        angle += 0.002;
+  function nextShot() {
 
-        // 🎬 Multiple cinematic styles
-        let pitch;
-        let range;
+    if (!cinematicActive) return;
 
-        if (phase === 0) {
-          // Wide orbit
-          pitch = Cesium.Math.toRadians(-25);
-          range = window.tileset.boundingSphere.radius * 3;
+    const shot = shots[index];
 
-          if (angle > Math.PI * 2) {
-            phase = 1;
-            angle = 0;
-          }
+    viewer.camera.flyToBoundingSphere(tileset.boundingSphere, {
+      duration: 4,
+      offset: new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(shot.heading),
+        Cesium.Math.toRadians(shot.pitch),
+        tileset.boundingSphere.radius * shot.range
+      ),
+      easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+      complete: () => {
+        index = (index + 1) % shots.length;
+        setTimeout(nextShot, 1000);
+      }
+    });
+  }
 
-        } else if (phase === 1) {
-          // Closer cinematic shot
-          pitch = Cesium.Math.toRadians(-35);
-          range = window.tileset.boundingSphere.radius * 1.8;
+  nextShot();
+}
 
-          if (angle > Math.PI * 2) {
-            phase = 2;
-            angle = 0;
-          }
+// 🔁 Optional: restart cinematic manually
+window.restartCinematic = function() {
+  cinematicActive = true;
+  startCinematic();
+};
 
-        } else {
-          // Top cinematic tilt
-          pitch = Cesium.Math.toRadians(-60);
-          range = window.tileset.boundingSphere.radius * 2.5;
+init();
+</script>
 
-          if (angle > Math.PI * 2) {
-            phase = 0;
-            angle = 0;
-          }
-        }
-
-        const offset = new Cesium.HeadingPitchRange(
-          angle,
-          pitch,
-          range
-        );
-
-        window.viewer.camera.lookAt(center, offset);
-      });
-    }
-
-    // OPTIONAL: Restart cinematic if needed
-    window.restartCinematic = function() {
-      cinematicActive = true;
-      console.log("▶️ Cinematic restarted");
-    };
-
-    init();
-  </script>
 </body>
 </html>
