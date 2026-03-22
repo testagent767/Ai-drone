@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Cesium Renderer</title>
+  <title>Cinematic Viewer</title>
 
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -14,7 +14,6 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: black;
     }
   </style>
 </head>
@@ -25,32 +24,18 @@
 <script>
 Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
 
-// 🔴 VERY IMPORTANT (backend waits for this)
-window.renderReady = false;
+let cinematicActive = true;
 
 async function init() {
 
   const viewer = new Cesium.Viewer("cesiumContainer", {
     terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-
-    // remove UI (important for clean video)
-    animation: false,
-    timeline: false,
-    baseLayerPicker: false,
-    geocoder: false,
-    homeButton: false,
-    sceneModePicker: false,
-    navigationHelpButton: false,
-    infoBox: false,
-    selectionIndicator: false,
-
-    shadows: true,
-    shouldAnimate: true
+    shouldAnimate: true,
+    shadows: true
   });
 
   viewer.scene.globe.enableLighting = true;
 
-  // ✅ YOUR 3D TILE
   const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
   viewer.scene.primitives.add(tileset);
 
@@ -59,33 +44,40 @@ async function init() {
   window.viewer = viewer;
   window.tileset = tileset;
 
-  // 🎬 START CINEMATIC
-  startCinematic();
+  // 🎯 STOP cinematic on ANY user interaction
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
 
-  // ✅ tell backend it's ready
-  window.renderReady = true;
+  handler.setInputAction(() => cinematicActive = false, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+  handler.setInputAction(() => cinematicActive = false, Cesium.ScreenSpaceEventType.WHEEL);
+  handler.setInputAction(() => cinematicActive = false, Cesium.ScreenSpaceEventType.PINCH_START);
+
+  startCinematic();
 }
 
 function startCinematic() {
 
   const viewer = window.viewer;
   const tileset = window.tileset;
+  const center = tileset.boundingSphere.center;
 
+  // 🎬 Define cinematic shots
   const shots = [
-    { heading: 30, pitch: -25, range: 3.0, duration: 4 },
-    { heading: 120, pitch: -35, range: 2.0, duration: 4 },
-    { heading: 210, pitch: -45, range: 1.6, duration: 4 },
-    { heading: 300, pitch: -30, range: 2.5, duration: 4 }
+    { heading: 30, pitch: -25, range: 3.0 },
+    { heading: 120, pitch: -35, range: 2.0 },
+    { heading: 210, pitch: -45, range: 1.6 },
+    { heading: 300, pitch: -30, range: 2.5 }
   ];
 
   let index = 0;
 
   function nextShot() {
 
+    if (!cinematicActive) return;
+
     const shot = shots[index];
 
     viewer.camera.flyToBoundingSphere(tileset.boundingSphere, {
-      duration: shot.duration,
+      duration: 4,
       offset: new Cesium.HeadingPitchRange(
         Cesium.Math.toRadians(shot.heading),
         Cesium.Math.toRadians(shot.pitch),
@@ -94,7 +86,7 @@ function startCinematic() {
       easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
       complete: () => {
         index = (index + 1) % shots.length;
-        setTimeout(nextShot, 500);
+        setTimeout(nextShot, 1000);
       }
     });
   }
@@ -102,7 +94,14 @@ function startCinematic() {
   nextShot();
 }
 
+// 🔁 Optional: restart cinematic manually
+window.restartCinematic = function() {
+  cinematicActive = true;
+  startCinematic();
+};
+
 init();
 </script>
+
 </body>
 </html>
