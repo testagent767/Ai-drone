@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>3D Tiles Viewer</title>
+  <title>3D Property Viewer</title>
 
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -13,6 +13,7 @@
       height: 100%;
       margin: 0;
       padding: 0;
+      overflow: hidden;
     }
   </style>
 </head>
@@ -21,37 +22,75 @@
   <div id="cesiumContainer"></div>
 
   <script>
+    // 🔴 PUT YOUR TOKEN HERE
     Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
 
     async function init() {
 
+      // ✅ IMPORTANT: Use Ellipsoid (fixes your flat issue)
       const viewer = new Cesium.Viewer("cesiumContainer", {
-        terrain: Cesium.Terrain.fromWorldTerrain(),
+        terrainProvider: new Cesium.EllipsoidTerrainProvider(),
         shadows: true
       });
 
+      // Lighting for better 3D look
       viewer.scene.globe.enableLighting = true;
 
-      // 🔥 LOAD YOUR 3D TILESET
+      // ✅ Load your 3D tiles (your asset ID)
       const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
       viewer.scene.primitives.add(tileset);
 
       await tileset.readyPromise;
 
-      // 🎯 FORCE GOOD CAMERA VIEW (NOT TOP-DOWN)
+      // ✅ Move camera to good angle (NOT top-down)
       viewer.camera.flyToBoundingSphere(tileset.boundingSphere, {
         offset: new Cesium.HeadingPitchRange(
-          Cesium.Math.toRadians(45),   // rotate view
-          Cesium.Math.toRadians(-30),  // tilt camera
+          Cesium.Math.toRadians(45),   // side angle
+          Cesium.Math.toRadians(-30),  // tilt (IMPORTANT for 3D look)
           tileset.boundingSphere.radius * 2
         )
       });
 
+      // Save globally (needed later for Puppeteer)
       window.viewer = viewer;
       window.tileset = tileset;
 
-      console.log("✅ 3D tiles loaded");
+      console.log("✅ 3D property loaded");
+
+      // 🎥 Start simple orbit animation
+      startOrbit();
     }
+
+    function startOrbit() {
+      let angle = 0;
+
+      window.viewer.clock.onTick.addEventListener(() => {
+        angle += 0.002;
+
+        const center = window.tileset.boundingSphere.center;
+
+        const offset = new Cesium.HeadingPitchRange(
+          angle,
+          Cesium.Math.toRadians(-30),
+          window.tileset.boundingSphere.radius * 2
+        );
+
+        window.viewer.camera.lookAt(center, offset);
+      });
+    }
+
+    // 🎯 Manual angle control (for Puppeteer later)
+    window.setCameraAngle = function(angle) {
+      const center = window.tileset.boundingSphere.center;
+
+      const offset = new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(angle),
+        Cesium.Math.toRadians(-30),
+        window.tileset.boundingSphere.radius * 2
+      );
+
+      window.viewer.camera.lookAt(center, offset);
+    };
 
     init();
   </script>
