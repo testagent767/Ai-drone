@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>3D Property Viewer</title>
+  <title>Cinematic Property Viewer</title>
 
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -22,74 +22,107 @@
   <div id="cesiumContainer"></div>
 
   <script>
-    // 🔴 PUT YOUR TOKEN HERE
     Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDNiNDQ4Yi1hMzg0LTQxYzEtYjMxYy00NGJlMjBiN2I4YzYiLCJpZCI6NDA2NzI3LCJpYXQiOjE3NzQwNTEzMzd9.W410ifK9UItmiq6mZIr0ot8JXGgi4T9mCBc9GIUaykA";
+
+    let cinematicActive = true;
 
     async function init() {
 
-      // ✅ IMPORTANT: Use Ellipsoid (fixes your flat issue)
       const viewer = new Cesium.Viewer("cesiumContainer", {
         terrainProvider: new Cesium.EllipsoidTerrainProvider(),
         shadows: true
       });
 
-      // Lighting for better 3D look
       viewer.scene.globe.enableLighting = true;
 
-      // ✅ Load your 3D tiles (your asset ID)
       const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(4550299);
       viewer.scene.primitives.add(tileset);
 
       await tileset.readyPromise;
 
-      // ✅ Move camera to good angle (NOT top-down)
+      // 🎯 Initial cinematic position
       viewer.camera.flyToBoundingSphere(tileset.boundingSphere, {
+        duration: 2,
         offset: new Cesium.HeadingPitchRange(
-          Cesium.Math.toRadians(45),   // side angle
-          Cesium.Math.toRadians(-30),  // tilt (IMPORTANT for 3D look)
+          Cesium.Math.toRadians(45),
+          Cesium.Math.toRadians(-30),
           tileset.boundingSphere.radius * 2
         )
       });
 
-      // Save globally (needed later for Puppeteer)
       window.viewer = viewer;
       window.tileset = tileset;
 
-      console.log("✅ 3D property loaded");
+      // 👇 Detect user interaction → STOP cinematic
+      viewer.camera.moveStart.addEventListener(() => {
+        cinematicActive = false;
+        console.log("⛔ Cinematic stopped by user");
+      });
 
-      // 🎥 Start simple orbit animation
-      startOrbit();
+      startCinematic();
     }
 
-    function startOrbit() {
+    function startCinematic() {
       let angle = 0;
+      let phase = 0;
 
       window.viewer.clock.onTick.addEventListener(() => {
-        angle += 0.002;
+
+        if (!cinematicActive) return;
 
         const center = window.tileset.boundingSphere.center;
 
+        angle += 0.002;
+
+        // 🎬 Multiple cinematic styles
+        let pitch;
+        let range;
+
+        if (phase === 0) {
+          // Wide orbit
+          pitch = Cesium.Math.toRadians(-25);
+          range = window.tileset.boundingSphere.radius * 3;
+
+          if (angle > Math.PI * 2) {
+            phase = 1;
+            angle = 0;
+          }
+
+        } else if (phase === 1) {
+          // Closer cinematic shot
+          pitch = Cesium.Math.toRadians(-35);
+          range = window.tileset.boundingSphere.radius * 1.8;
+
+          if (angle > Math.PI * 2) {
+            phase = 2;
+            angle = 0;
+          }
+
+        } else {
+          // Top cinematic tilt
+          pitch = Cesium.Math.toRadians(-60);
+          range = window.tileset.boundingSphere.radius * 2.5;
+
+          if (angle > Math.PI * 2) {
+            phase = 0;
+            angle = 0;
+          }
+        }
+
         const offset = new Cesium.HeadingPitchRange(
           angle,
-          Cesium.Math.toRadians(-30),
-          window.tileset.boundingSphere.radius * 2
+          pitch,
+          range
         );
 
         window.viewer.camera.lookAt(center, offset);
       });
     }
 
-    // 🎯 Manual angle control (for Puppeteer later)
-    window.setCameraAngle = function(angle) {
-      const center = window.tileset.boundingSphere.center;
-
-      const offset = new Cesium.HeadingPitchRange(
-        Cesium.Math.toRadians(angle),
-        Cesium.Math.toRadians(-30),
-        window.tileset.boundingSphere.radius * 2
-      );
-
-      window.viewer.camera.lookAt(center, offset);
+    // OPTIONAL: Restart cinematic if needed
+    window.restartCinematic = function() {
+      cinematicActive = true;
+      console.log("▶️ Cinematic restarted");
     };
 
     init();
